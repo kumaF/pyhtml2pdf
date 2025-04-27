@@ -76,7 +76,12 @@ def __send_devtools(driver, cmd, params=None):
     if params is None:
         params = {}
     resource = "/session/%s/chromium/send_command_and_get_result" % driver.session_id
-    url = driver.command_executor._url + resource
+    if hasattr(driver.command_executor, '_client_config'):
+        remote_url = driver.command_executor._client_config.remote_server_addr
+    else:
+        # Old internal API
+        remote_url = driver.command_executor._url
+    url = remote_url + resource
     body = json.dumps({"cmd": cmd, "params": params})
     response = driver.command_executor._request("POST", url, body)
 
