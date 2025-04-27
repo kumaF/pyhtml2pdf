@@ -88,7 +88,6 @@ def __send_devtools(driver, cmd, params=None):
 
 def __get_pdf_from_html(
     source: Union[str, io.BytesIO], timeout: int, install_driver: bool, print_options: dict
-):
 ) -> bytes:
     webdriver_options = Options()
     webdriver_prefs = {}
