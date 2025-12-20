@@ -1,14 +1,50 @@
 import os
 import platform
 import subprocess
+import pikepdf
+from typing import Union, Literal
 from pathlib import Path
 from tempfile import NamedTemporaryFile, _TemporaryFileWrapper
 
+MAX_PDF_SIZE_MB = 25
+MAX_BYTES = MAX_PDF_SIZE_MB * 1024 * 1024
 
-def compress(source: str | os.PathLike | _TemporaryFileWrapper,
-             target: str | os.PathLike,
-             power: int = 0,
-             ghostscript_command: str = None) -> None:
+
+def __accept_pdf(
+    path: str | Path,
+    max_pdf_size: int
+) -> bool:
+    path = Path(path)
+
+    # Basic size validation won't accept files that are too large or empty
+    size = path.stat().st_size
+    if size <= 0 or size > max_pdf_size:
+        raise ValueError(
+            f'Input PDF file size is larger than the maximum allowed size of {MAX_PDF_SIZE_MB} MB. Adjust the max_pdf_size parameter to increase the limit.')
+
+    # Basic header validation using magic bytes check
+    with path.open('rb') as f:
+        if f.read(5) != b'%PDF-':
+            raise ValueError('Input file failed PDF magic bytes validation.')
+
+    # Structural validation
+    try:
+        with pikepdf.open(path) as pdf:
+            if len(pdf.pages) <= 0:
+                raise ValueError('Input PDF file has no pages.')
+    except Exception as e:
+        raise ValueError(f'Input file failed PDF structural validation due to: {str(e)}')
+
+    return True
+
+
+def compress(
+    source: str | os.PathLike | _TemporaryFileWrapper,
+    target: str | os.PathLike,
+    power: int = 0,
+    ghostscript_command: Union[Literal['gs', 'gswin64c', 'gswin32c'], None] = None,
+    max_pdf_size: int = MAX_BYTES
+) -> None:
     """
 
     :param source: Source PDF file
@@ -24,6 +60,7 @@ def compress(source: str | os.PathLike | _TemporaryFileWrapper,
                                 If the OS is not Windows, "gs" is used as executable name.
                                 If the OS is Windows, and it is a 64-bit version, "gswin64c" is used. If it is a 32-bit
                                 version, "gswin32c" is used.
+    :param max_pdf_size: Maximum allowed size for the PDF in bytes. Default is 25 MB.
     """
     quality = {
         0: '/default',
@@ -54,20 +91,23 @@ def compress(source: str | os.PathLike | _TemporaryFileWrapper,
     if source.suffix != '.pdf':
         raise ValueError('Input file must be a .pdf file')
 
-    subprocess.call([ghostscript_command,
-                     '-sDEVICE=pdfwrite', '-dCompatibilityLevel=1.4',
-                     '-dPDFSETTINGS={}'.format(quality[power]),
-                     '-dNOPAUSE', '-dQUIET', '-dBATCH',
-                     '-sOutputFile={}'.format(target.as_posix()),
-                     source.as_posix()],
-                    shell=platform.system() == 'Windows'
-                    )
+    if __accept_pdf(source, max_pdf_size):
+
+        subprocess.call([
+            ghostscript_command,
+            '-dSAFER', '-dBATCH', '-dNOPAUSE',
+            '-sDEVICE=pdfwrite', '-dCompatibilityLevel=1.4',
+            '-dPDFSETTINGS={}'.format(quality[power]),
+            '-dNOPAUSE', '-dQUIET', '-dBATCH',
+            '-sOutputFile={}'.format(target.as_posix()),
+            source.as_posix()
+        ], shell=platform.system() == 'Windows')
 
 
 def _compress(result: bytes,
-               target: str | os.PathLike,
-               power: int,
-               ghostscript_command: str | None):
+              target: str | os.PathLike,
+              power: int,
+              ghostscript_command: Union[Literal['gs', 'gswin64c', 'gswin32c'], None] = None):
     with NamedTemporaryFile(suffix='.pdf', delete=platform.system() != 'Windows') as tmp_file:
         tmp_file.write(result)
 

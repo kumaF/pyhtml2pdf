@@ -1,7 +1,7 @@
 import json
 import base64
 import io
-from typing import Union, TypedDict
+from typing import Union, TypedDict, Literal
 
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
@@ -39,7 +39,7 @@ def convert(
     power: int = 0,
     install_driver: bool = True,
     print_options: PrintOptions = {},
-    ghostscript_command: str = None
+    ghostscript_command: Union[Literal['gs', 'gswin64c', 'gswin32c'], None] = None
 ):
     """
     Convert a given html file or website into PDF
@@ -66,7 +66,7 @@ def convert(
     if compress:
         _compress(result, target, power, ghostscript_command)
     else:
-        if type(target) == io.BytesIO:
+        if isinstance(target, io.BytesIO):
             return target.write(result)
         with open(target, "wb") as file:
             file.write(result)
@@ -111,9 +111,8 @@ def __get_pdf_from_html(
     else:
         driver = webdriver.Chrome(options=webdriver_options)
 
-    
     # Detect the type of source and create data url if needed
-    if type(source) == io.BytesIO:
+    if isinstance(source, io.BytesIO):
         encoded_content = base64.b64encode(source.getvalue()).decode('utf-8')
         path = f'data:text/html;base64,{encoded_content}'
     if not source.startswith('http') and not source.startswith('file'):
