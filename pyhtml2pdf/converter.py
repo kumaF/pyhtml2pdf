@@ -1,16 +1,16 @@
-import json
 import base64
 import io
-from typing import Union, TypedDict, Literal
+import json
+from typing import Literal, TypedDict, Union
 
 from selenium import webdriver
+from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
-from selenium.common.exceptions import TimeoutException
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support.expected_conditions import staleness_of
-from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.common.by import By
+from selenium.webdriver.support.expected_conditions import staleness_of
+from selenium.webdriver.support.ui import WebDriverWait
+from webdriver_manager.chrome import ChromeDriverManager
 
 from .compressor import _compress
 
@@ -39,7 +39,7 @@ def convert(
     power: int = 0,
     install_driver: bool = True,
     print_options: PrintOptions = {},
-    ghostscript_command: Union[Literal['gs', 'gswin64c', 'gswin32c'], None] = None
+    ghostscript_command: Union[Literal["gs", "gswin64c", "gswin32c"], None] = None,
 ):
     """
     Convert a given html file or website into PDF
@@ -60,11 +60,10 @@ def convert(
     if print_options is None:
         print_options = {}
 
-    result = __get_pdf_from_html(
-        source, timeout, install_driver, print_options)
+    result = __get_pdf_from_html(source, timeout, install_driver, print_options)
 
     if compress:
-        _compress(result, target, power, ghostscript_command)
+        _compress(result, target, power, timeout, ghostscript_command)
     else:
         if isinstance(target, io.BytesIO):
             return target.write(result)
@@ -76,7 +75,7 @@ def __send_devtools(driver, cmd, params=None):
     if params is None:
         params = {}
     resource = "/session/%s/chromium/send_command_and_get_result" % driver.session_id
-    if hasattr(driver.command_executor, '_client_config'):
+    if hasattr(driver.command_executor, "_client_config"):
         remote_url = driver.command_executor._client_config.remote_server_addr
     else:
         # Old internal API
@@ -92,7 +91,10 @@ def __send_devtools(driver, cmd, params=None):
 
 
 def __get_pdf_from_html(
-    source: Union[str, io.BytesIO], timeout: int, install_driver: bool, print_options: dict
+    source: Union[str, io.BytesIO],
+    timeout: int,
+    install_driver: bool,
+    print_options: dict,
 ) -> bytes:
     webdriver_options = Options()
     webdriver_prefs = {}
@@ -113,11 +115,11 @@ def __get_pdf_from_html(
 
     # Detect the type of source and create data url if needed
     if isinstance(source, io.BytesIO):
-        encoded_content = base64.b64encode(source.getvalue()).decode('utf-8')
-        path = f'data:text/html;base64,{encoded_content}'
-    if not source.startswith('http') and not source.startswith('file'):
-        encoded_content = base64.b64encode(source.encode('utf-8')).decode('utf-8')
-        path = f'data:text/html;base64,{encoded_content}'
+        encoded_content = base64.b64encode(source.getvalue()).decode("utf-8")
+        path = f"data:text/html;base64,{encoded_content}"
+    if not source.startswith("http") and not source.startswith("file"):
+        encoded_content = base64.b64encode(source.encode("utf-8")).decode("utf-8")
+        path = f"data:text/html;base64,{encoded_content}"
     else:
         path = source
 
@@ -135,8 +137,7 @@ def __get_pdf_from_html(
             "preferCSSPageSize": True,
         }
         calculated_print_options.update(print_options)
-        result = __send_devtools(
-            driver, "Page.printToPDF", calculated_print_options)
+        result = __send_devtools(driver, "Page.printToPDF", calculated_print_options)
         return base64.b64decode(result["data"])
     finally:
         driver.quit()
