@@ -117,7 +117,7 @@ def __get_pdf_from_html(
     if isinstance(source, io.BytesIO):
         encoded_content = base64.b64encode(source.getvalue()).decode("utf-8")
         path = f"data:text/html;base64,{encoded_content}"
-    if not source.startswith("http") and not source.startswith("file"):
+    elif not source.startswith("http") and not source.startswith("file"):
         encoded_content = base64.b64encode(source.encode("utf-8")).decode("utf-8")
         path = f"data:text/html;base64,{encoded_content}"
     else:
